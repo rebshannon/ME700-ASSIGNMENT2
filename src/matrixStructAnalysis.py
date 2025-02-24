@@ -45,10 +45,10 @@ def run_MSA_solver(Nodes,Elements):
 
     # assemble displacement and forces in arrays
     #all_forces = np.reshape(np.vstack((Nodes.forces,F_rxn)),(Nodes.numNodes,6))
-    # all_disp = np.reshape(Delta_f,(Nodes.numNodes,6)))
+    #all_disp = np.reshape(Delta_f,(Nodes.numNodes,6)))
 
     #return np.size(Delta_f),np.size(F_rxn)
-    return F_rxn
+    return Delta_f, F_rxn
 
 
 def find_global_frame_stiffness(Nodes,Elements):
