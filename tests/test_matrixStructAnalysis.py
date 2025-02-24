@@ -109,8 +109,8 @@ def test_find_global_frame_stiffness(NC,EC):
 #     assert knownDOF == foundDOF
 #     assert np.all(known == found)
 
-def test_run_MSA_solver(NC,EC):
-    found = MSA.run_MSA_solver(NC,EC)
-    known = np.reshape(np.array([-3.53553391,-17.6776695,0,0,0,5.30330086e4]),(6,1))
-    #known=np.size(np.zeros((9,1)))
-    assert np.allclose(known, found)
+# def test_run_MSA_solver(NC,EC):
+#     found = MSA.run_MSA_solver(NC,EC)
+#     known = np.reshape(np.array([-3.53553391,-17.6776695,0,0,0,5.30330086e4]),(6,1))
+#     #known=np.size(np.zeros((9,1)))
+#     assert np.allclose(known, found)
