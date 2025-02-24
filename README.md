@@ -10,7 +10,7 @@
 ## Table of Contents
 
 * [Set Up](#setup)
-* [Instructions] (#inst)
+* [Instructions](#inst)
 * [Tutorial](#tutorial)
 
 ## Set Up <a name=setup></a>
