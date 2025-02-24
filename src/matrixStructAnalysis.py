@@ -3,11 +3,11 @@ import math
 import math_utils as MSA_math
 
 class Nodes:
-    def __init__(self,nodes,nodeType,load):
+    def __init__(self,nodes,load, BC):
         self.nodes = nodes
-        self.nodeType = nodeType
         self.load = load
-        
+        self.BC = BC
+
         self.numNodes = np.size(nodes,0)
         self.numDOF = 6
         self.forces = np.reshape(load,(self.numNodes*6,1))
@@ -25,13 +25,15 @@ class Elements:
 
         self.numElements = np.size(self.connections,0)
         self.elem_load = np.zeros((12,self.numElements))
-        self.L = np.zeros(self.numElements)+1  
+        self.L = np.zeros(self.numElements) + 1  
 
 
 def run_MSA_solver(Nodes,Elements):
     
     K_global = find_global_frame_stiffness(Nodes,Elements)
     partition_K_global, partition_forces, num_unknown_disp = partition_matrices(Nodes,Elements,K_global)
+
+    #print(K_global)
 
     # pull out what you need for forces and stiffness to solve for unknown displacement
     known_forces = partition_forces[0:num_unknown_disp]
@@ -104,13 +106,15 @@ def partition_matrices(Nodes,Elements,K_global):
     # make DOF matrix
     DOF = np.zeros((Nodes.numNodes,Nodes.numDOF))
 
-    # 0 = known DOF
-    # 1 = unknown DOF
+    # 1 = unknown DOF, true = fixed
+    # 0 = known DOF, not true = not fixed
     for node_ind in range(Nodes.numNodes):
-        if Nodes.nodeType[node_ind] == 0:
-            DOF[node_ind][:] = 1 
-        elif Nodes.nodeType[node_ind] == 2:
-            DOF[node_ind][3:6] = 1
+        DOF[node_ind,:] = Nodes.BC[node_ind,:]
+        
+        # if Nodes.nodeType[node_ind] == 0:
+        #     DOF[node_ind][:] = 1 
+        # elif Nodes.nodeType[node_ind] == 2:
+        #     DOF[node_ind][3:6] = 1
     
     DOF = np.reshape(DOF,(Nodes.numNodes*6,1))
 

@@ -54,10 +54,7 @@ Defines geometry and loading related to each node. Note that the nodes are defin
 
 `load` - the applied load at each node, should be an N x 6 array where N is the number of nodes; each column is defined: Fx, Fy, Fz, Mx, My, and Mz
 
-`nodeType` - the type of boundary condition for each node, should be an N x 1 array; node types are as follows:  
-    0 = free node  
-    1 = fixed node  
-    2 = pinned node  
+`BC` - boundary conditions for each node, specifiy which degrees of freedom are fixed (0) and which are not fixed (1), should be an N x 6 array, each row describes a different node and each column is defined: u, v, w, $\theta_x$, $\theta_x$, and $\theta_z$ 
 
 #### Element Class
 
