@@ -69,7 +69,7 @@ Material Properties - define the material properties for each element, each shou
 `A` - Cross-sectional area  
 `Iz` - Moment of inertia about z-axis  
 `Iy` -Moment of inertia about y-axis  
-`Ip` - Polar moment of inertia 
+`Ip` - Polar moment of inertia  
 `J` - Torsional constant
 
 Returns the unknown nodal displacements and the unknown reaction forces.  
