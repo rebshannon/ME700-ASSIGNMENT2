@@ -33,13 +33,30 @@ def run_MSA_solver(Nodes,Elements):
     K_global = find_global_frame_stiffness(Nodes,Elements)
     partition_K_global, partition_forces, num_unknown_disp = partition_matrices(Nodes,Elements,K_global)
 
-    #print(K_global)
-
+    print(K_global)
+    partF = []
+    partK = []
+    allDOF = np.reshape(Nodes.BC,(Nodes.numNodes*6,1))
+    for i, dof_BC in enumerate(allDOF):
+        if dof_BC == 1: # free displacement
+            partF.append(Nodes.forces[i])
+            partK.append(K_global[i,:])
+    
+    # print(partK, partF)
+    # partF=np.array(partF)
+    # partK = np.array(partK)
+    # Fsize = np.size(partF)
+    # partK2 = np.array(partK[:,0:9])
+    # print(partK2)
+    
     # pull out what you need for forces and stiffness to solve for unknown displacement
     known_forces = partition_forces[0:num_unknown_disp]
     K_known_forces = partition_K_global[0:num_unknown_disp,0:num_unknown_disp]
 
+    #print(known_forces)
+    #print(K_known_forces)
     Delta_f = np.linalg.solve(K_known_forces,known_forces)
+    #Delta_f = np.linalg.solve(partK2,partF)
 
     # find rxn forces
     K_unknown_forces = partition_K_global[0:num_unknown_disp,num_unknown_disp:]
@@ -92,6 +109,7 @@ def find_global_frame_stiffness(Nodes,Elements):
     
         # transform each element stiffness matrix to global coordinates
         k_eg = np.transpose(Gamma) @ k_e @ Gamma
+        #print(k_eg)
         
         # assemble frame stiffness matrix
 
@@ -120,7 +138,7 @@ def partition_matrices(Nodes,Elements,K_global):
 
     # now have F = KX where F,X are 18x1, K is 18x18
     # rearrange the system of equations so that the unknown DOF are at the top
-    # unknown forces != 0
+    # known forces != 0
     unknown_disp = np.where(DOF != 0)[0]
     known_disp = np.where(DOF == 0)[0]
 
@@ -131,6 +149,8 @@ def partition_matrices(Nodes,Elements,K_global):
     partition_K_global = np.vstack((K_global[unknown_disp],K_global[known_disp]))
 
     num_unknown_disp = np.size(unknown_disp)
+
+   
 
     return partition_K_global, partition_forces, num_unknown_disp
     #return DOF, partition_forces, partition_K_global, num_unknown_disp
