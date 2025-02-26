@@ -31,24 +31,9 @@ class Elements:
 def run_MSA_solver(Nodes,Elements):
     
     K_global = find_global_frame_stiffness(Nodes,Elements)
-    partition_K_global, partition_forces, num_unknown_disp = partition_matrices(Nodes,Elements,K_global)
+    partition_K_global, partition_forces, num_unknown_disp,force_index = partition_matrices(Nodes,Elements,K_global)
 
-    print(K_global)
-    partF = []
-    partK = []
-    allDOF = np.reshape(Nodes.BC,(Nodes.numNodes*6,1))
-    for i, dof_BC in enumerate(allDOF):
-        if dof_BC == 1: # free displacement
-            partF.append(Nodes.forces[i])
-            partK.append(K_global[i,:])
-    
-    # print(partK, partF)
-    # partF=np.array(partF)
-    # partK = np.array(partK)
-    # Fsize = np.size(partF)
-    # partK2 = np.array(partK[:,0:9])
-    # print(partK2)
-    
+    force_index = np.reshape(np.array(force_index),(np.size(force_index),1))
     # pull out what you need for forces and stiffness to solve for unknown displacement
     known_forces = partition_forces[0:num_unknown_disp]
     K_known_forces = partition_K_global[0:num_unknown_disp,0:num_unknown_disp]
@@ -62,12 +47,14 @@ def run_MSA_solver(Nodes,Elements):
     K_unknown_forces = partition_K_global[0:num_unknown_disp,num_unknown_disp:]
     F_rxn = K_unknown_forces @ Delta_f
 
+    dof_displacement = np.hstack((force_index,Delta_f))
+
     # assemble displacement and forces in arrays
     #all_forces = np.reshape(np.vstack((Nodes.forces,F_rxn)),(Nodes.numNodes,6))
     #all_disp = np.reshape(Delta_f,(Nodes.numNodes,6)))
 
     #return np.size(Delta_f),np.size(F_rxn)
-    return Delta_f, F_rxn
+    return dof_displacement, F_rxn
 
 
 def find_global_frame_stiffness(Nodes,Elements):
@@ -121,36 +108,31 @@ def find_global_frame_stiffness(Nodes,Elements):
     return K_global
 
 def partition_matrices(Nodes,Elements,K_global):
-    # make DOF matrix
-    DOF = np.zeros((Nodes.numNodes,Nodes.numDOF))
 
-    # 1 = unknown DOF, true = fixed
-    # 0 = known DOF, not true = not fixed
-    for node_ind in range(Nodes.numNodes):
-        DOF[node_ind,:] = Nodes.BC[node_ind,:]
-        
-        # if Nodes.nodeType[node_ind] == 0:
-        #     DOF[node_ind][:] = 1 
-        # elif Nodes.nodeType[node_ind] == 2:
-        #     DOF[node_ind][3:6] = 1
-    
-    DOF = np.reshape(DOF,(Nodes.numNodes*6,1))
+    partF = []
+    partK = []
+    forceInd = []
+    partK_ind = []
 
-    # now have F = KX where F,X are 18x1, K is 18x18
-    # rearrange the system of equations so that the unknown DOF are at the top
-    # known forces != 0
-    unknown_disp = np.where(DOF != 0)[0]
-    known_disp = np.where(DOF == 0)[0]
+    # pull out the known forces 
+    # these correspond to unknown displacement
+    # keep track of their index with forceInd
+    allDOF = np.reshape(Nodes.BC,(Nodes.numNodes*6,1))
+    for i, dof_BC in enumerate(allDOF):
+        if dof_BC == 1: # free displacement
+            partF.append(Nodes.forces[i])
+            #partK.append(K_global[i,:])
+            forceInd.append(i)
 
-    known_forces = np.array(Nodes.forces[unknown_disp])
-    unknown_forces = np.array(Nodes.forces[known_disp])
+    # assemble partitioned k_global based on which DOF are known (0) or unknown (1)
+    # should have the same indexing as the forceInd
+    unknown_disp = np.where(allDOF != 0)[0]
+    known_disp = np.where(allDOF == 0)[0]
 
-    partition_forces = np.vstack((Nodes.forces[unknown_disp],Nodes.forces[known_disp]))
+    #partition_forces = np.vstack((Nodes.forces[unknown_disp],Nodes.forces[known_disp]))
     partition_K_global = np.vstack((K_global[unknown_disp],K_global[known_disp]))
 
     num_unknown_disp = np.size(unknown_disp)
 
-   
-
-    return partition_K_global, partition_forces, num_unknown_disp
+    return partition_K_global, partF, num_unknown_disp, forceInd
     #return DOF, partition_forces, partition_K_global, num_unknown_disp

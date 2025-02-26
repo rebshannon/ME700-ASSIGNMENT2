@@ -35,7 +35,7 @@ Set up the conda environment and test that the code is functioning. Note: The en
     ```bash
     pip install -e .
     ```
-5. Test the code with pytest. This command returns code coverage for all files in the directory. Coverage for each of the solvers should be 100% and all tests should pass.  
+5. Test the code with pytest. This command returns code coverage for all files in the directory. Coverage for *src/matrixStructAnalysis.py* should be 100% and all tests should pass.  
     ```bash
     pytest -v --cov=src  --cov-report term-missing
     ```
@@ -77,7 +77,7 @@ Note: The node/element order may be messed up on the result.
 
 ## Tutorial <a name=tutorial></a>
 
-The tutorial for this solver can be accessed with the following Jupyter notebook.
+The tutorial for this solver can be accessed with the following Jupyter notebook. The first exmaple is a simple one element system. The first in class example is also included, but it results in a singular matrix.
 
 ```bash
 pip install jupyter
