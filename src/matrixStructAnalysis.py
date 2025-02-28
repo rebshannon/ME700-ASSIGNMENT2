@@ -42,11 +42,7 @@ def run_MSA_solver(Nodes,Elements):
     F_rxn = partK_forces @ Delta_f
 
     dof_displacement = np.hstack((forceInd, Delta_f))
-    dof_force = np.hstack((dofInd,F_rxn))
-
-    # assemble displacement and forces in arrays
-    #all_forces = np.reshape(np.vstack((Nodes.forces,F_rxn)),(Nodes.numNodes,6))
-    #all_disp = np.reshape(Delta_f,(Nodes.numNodes,6)))
+    dof_force = np.hstack((dofInd,F_rxn[:np.size(dofInd)]))
 
     return dof_displacement, dof_force
 
@@ -82,16 +78,19 @@ def find_global_frame_stiffness(Nodes,Elements):
         # find k_e = element stiffness local coordinates
         k_e = MSA_math.local_elastic_stiffness_matrix_3D_beam(*matProps)
 
-        ##DEFINE V_TEMP
-
         # transformation matrix
-        gamma = MSA_math.rotation_matrix_3D(x1,y1,z1,x2,y2,z2,Elements.local_z[elm_ind])
+        # check for local z axis
+
+        if Elements.local_z is None:
+            gamma = MSA_math.rotation_matrix_3D(x1,y1,z1,x2,y2,z2)
+        else:
+            gamma = MSA_math.rotation_matrix_3D(x1,y1,z1,x2,y2,z2,Elements.local_z[elm_ind])
+    
         Gamma = MSA_math.transformation_matrix_3D(gamma)
     
         # transform each element stiffness matrix to global coordinates
         k_eg = np.transpose(Gamma) @ k_e @ Gamma
-        #print(k_eg)
-        
+                
         # assemble frame stiffness matrix
 
         K_global[node1_dof_ind1:node1_dof_ind2,node1_dof_ind1:node1_dof_ind2] += k_eg[0:6,0:6]
