@@ -214,10 +214,10 @@ def test_partition_matrices(NC,EC):
   assert np.allclose(known_forceInd, foundForceInd)
   assert np.allclose(known_dofInd, founddofInd)
 
-def test_run_MSA_solver(NC,EC):
-  found_d,found_f = MSA.run_MSA_solver(NC,EC)
-  known_f = np.reshape(np.array([0,-0.09468332,1,-0.03420124,2,0.00469541,3,0.1079876,4,-0.02359799,5,-0.76301861,12,-0.00531668,13,-0.01579876,14,0.06530459]),(9,2))
-  known_d = np.reshape(np.array([6,2.84049953e-3,7,1.59843349,8,-1.30609178e-3,9,-1.47204342e-1,10,-1.67293339e-2,11,1.82343348e-1,15,-0.16616285,16,0.00879074,17,0.18234335]),(9,2))
+def test_run_linear_solver(NC,EC):
+  found_d,found_f = MSA.run_linear_solver(NC,EC)
+  known_f = np.reshape(np.array([-0.09468332,-0.03420124,0.00469541,0.1079876,-0.02359799,-0.76301861,0.1,0.05,-0.07,0.05,-0.1,0.25,-0.00531668,-0.01579876,0.06530459,0,0,0]),(18,1))
+  known_d = np.array([0,0,0,0,0,0,2.84049953e-3,1.59843349,-1.30609178e-3,-1.47204342e-1,-1.67293339e-2,1.82343348e-1,0,0,0,-0.16616285,0.00879074,0.18234335])
 
   assert np.allclose(known_f, found_f)
   assert np.allclose(known_d, found_d)
@@ -242,3 +242,18 @@ def test_assemble_allForce_array(NC,EC):
   assert np.allclose(known_f, found_f)
   
 #def test_solve_eigan_problem():
+
+# def test_find_local_loads(NC,EC):
+#   known = np.zeros(12)
+#   known = np.reshape(np.array([-0.09468332,-0.03420124,0.00469541,0.1079876,-0.02359799,-0.76301861,0.1,0.05,-0.07,0.05,-0.1,0.25]),(12,1))
+#   test_force = np.reshape(np.array([-0.09468332,-0.03420124,0.00469541,0.1079876,-0.02359799,-0.76301861,0.1,0.05,-0.07,0.05,-0.1,0.25]),(12,1))
+#   found = MSA.find_localElm_loads(NC,EC,test_force,0)
+
+#   assert np.allclose(known,found)
+
+def test_allElm_internalForce_local(NC,EC):
+  known = np.reshape(np.array([-0.09468332,-0.03420124,0.00469541,0.1079876,-0.02359799,-0.76301861,0.1,0.05,-0.07,0.05,-0.1,0.25]),(12,1))
+  test_disp = np.array([0,0,0,0,0,0,2.84049953e-3,1.59843349,-1.30609178e-3,-1.47204342e-1,-1.67293339e-2,1.82343348e-1,0,0,0,-0.16616285,0.00879074,0.18234335])
+  found = MSA.allElm_internalForce_local(NC,EC,test_disp)
+
+  assert np.allclose(known,found)

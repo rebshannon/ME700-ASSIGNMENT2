@@ -30,7 +30,7 @@ class Elements:
         self.L = np.zeros(self.numElements) + 1  
 
 
-def run_MSA_solver(Nodes,Elements):
+def run_linear_solver(Nodes,Elements):
     
     K_global = find_global_frame_stiffness(Nodes,Elements)
     partK_DOF,partK_forces, partF, forceInd, dofInd = partition_matrices(Nodes,Elements,K_global)
@@ -42,13 +42,137 @@ def run_MSA_solver(Nodes,Elements):
     Delta_f = np.linalg.solve(partK_DOF,partF)
     F_rxn = partK_forces @ Delta_f
 
+    # just the unknowns
     dof_displacement = np.hstack((forceInd, Delta_f))
     dof_force = np.hstack((dofInd,F_rxn[:np.size(dofInd)]))
 
-    return dof_displacement, dof_force
+    # put all displacements and forces into arrays
+    all_displacement = assemble_allDisp_array(Nodes, dof_displacement)
+    all_force = assemble_allForce_array(Nodes, dof_force)
+
+    return all_displacement, all_force
+
+def allElm_internalForce_local(Nodes,Elements,displacements):
+    allInternalForces_local = []
+    for elm_ind in range(Elements.numElements):
+        element_force = find_internal_force_local(Nodes,Elements,displacements,elm_ind)
+        
+        allInternalForces_local.append(element_force)
+    return allInternalForces_local
+
+def find_internal_force_local(Nodes,Elements,displacements,elm_ind):
+    
+    # find original coordinates and DOF
+    x1,y1,z1,x2,y2,z2,node1_dof,node2_dof,node0,node1 = find_element_endPoints_dof(Nodes, Elements, elm_ind)
+
+    # displacements for this element
+    elm_displacement = np.hstack((displacements[node1_dof[0]:node1_dof[1]],displacements[node2_dof[0]:node2_dof[1]]))
+    elm_displacement = np.reshape(elm_displacement,(12,1))
+
+    # transformation matrix
+    gamma = find_gamma(x1,y1,z1,x2,y2,z2,Elements.local_z, elm_ind)
+    Gamma = MSA_math.transformation_matrix_3D(gamma)
+
+    # displacement in local coordinates
+    local_disp = Gamma @ elm_displacement
+
+    # find k_e = element stiffness local coordinates
+    matProps = np.array([Elements.E[elm_ind], Elements.nu[elm_ind], Elements.A[elm_ind], Elements.L[elm_ind], Elements.Iy[elm_ind], Elements.Iz[elm_ind], Elements.J[elm_ind]])
+    k_e = MSA_math.local_elastic_stiffness_matrix_3D_beam(*matProps)
+
+    # internal force in local coords
+    local_force = k_e @ local_disp
+
+    return local_force
+
+
+def run_elasticCriticalLoad_analysis(Nodes, Elements):
+
+    # linear part
+    displacement, forces = run_linear_solver(Nodes,Elements)
+
+    # local forces
+    local_forces = allElm_internalForce_local(Nodes,Elements,displacement)
+    local_forces = local_forces[0]
+
+    # find frame geometric stiffness in global coordinates
+    K_geo_global = find_global_frame_geometricStiffness(Nodes,Elements,local_forces)
+    partKgeo_DOF, partKgeo_forces, partGeoF, forceGeoInd, dofGeoInd = partition_matrices(Nodes,Elements,K_geo_global)
+
+    # frame elastic stiffness in global coordinates
+    K_global = find_global_frame_stiffness(Nodes,Elements)
+    partK_DOF,partK_forces, partF, forceInd, dofInd = partition_matrices(Nodes,Elements,K_global)
+
+    #eigenVal,eigenVect = solve_eigen_problem(partK_DOF,-partKgeo_DOF)
+
+    eigenvalues, eigenvectors = sp.linalg.eig(partK_DOF,-partKgeo_DOF)    
+    # Extract the real part of the eigenvalues (ignoring the imaginary part)
+    eigenvalues = np.real(eigenvalues)
+
+    # find the smallest eigenValue = critical load
+    P_crit = eigenvalues
+    return P_crit
+
+def find_global_frame_geometricStiffness(Nodes,Elements,F_local):
+
+    K_geo_global = np.zeros((Nodes.numNodes*6,Nodes.numNodes*6))
+
+    for elm_ind in range(Elements.numElements):
+
+        x1,y1,z1,x2,y2,z2,node1_dof,node2_dof,node0,node1 = find_element_endPoints_dof(Nodes, Elements, elm_ind)
+
+        # material properties
+        matProps = np.array([Elements.A[elm_ind], Elements.L[elm_ind], Elements.I_rho[elm_ind]])
+        
+        # force on element (may need to adjust)
+        F_local_element = np.vstack((F_local[node1_dof[0]:node1_dof[1]],F_local[node2_dof[0]:node2_dof[1]]))
+        F_indexForStiffness = [6,9,4,5,10,11]
+        F_forStiffness = F_local_element[F_indexForStiffness]
+               
+        k_g = MSA_math.local_geometric_stiffness_matrix_3D_beam(*matProps,*F_forStiffness)
+
+        # transformation matrix
+        # checks for local z axis      
+        gamma = find_gamma(x1,y1,z1,x2,y2,z2,Elements.local_z, elm_ind)
+        Gamma = MSA_math.transformation_matrix_3D(gamma)
+    
+        # transform each element stiffness matrix to global coordinates
+        k_g = np.transpose(Gamma) @ k_g @ Gamma
+                
+        # assemble frame stiffness matrix
+
+        K_geo_global[node1_dof[0]:node1_dof[1],node1_dof[0]:node1_dof[1]] += k_g[0:6,0:6]
+        K_geo_global[node1_dof[0]:node1_dof[1],node2_dof[0]:node2_dof[1]] += k_g[0:6,6:12]
+        K_geo_global[node2_dof[0]:node2_dof[1],node1_dof[0]:node1_dof[1]] += k_g[6:12,0:6]
+        K_geo_global[node2_dof[0]:node2_dof[1],node2_dof[0]:node2_dof[1]] += k_g[6:12,6:12]
+
+    return K_geo_global
+
+def solve_eigen_problem(k_e,k_g):
+
+    eigenvalues, eigenvectors = sp.linalg.eig(k_e, -k_g)
+
+    # Extract the real part of the eigenvalues (ignoring the imaginary part)
+    eigenvalues = np.real(eigenvalues)
+
+    # Filter for positive eigenvalues
+    positive_indices = eigenvalues > 0
+    positive_eigenvalues = eigenvalues[positive_indices]
+    positive_eigenvectors = eigenvectors[:, positive_indices]
+
+    # Sort the positive eigenvalues in ascending order
+    sorted_indices = np.argsort(positive_eigenvalues)
+    sorted_eigenvalues = positive_eigenvalues[sorted_indices]
+    sorted_eigenvectors = positive_eigenvectors[:, sorted_indices]
+
+    # only return the first index since that is the smallest eigen value
+    min_eigenValue = sorted_eigenvalues[0]
+    min_eigenVector = sorted_eigenvectors[0]
+
+    return min_eigenValue, min_eigenVector
 
 def assemble_allDisp_array(Nodes, disp):
-    # put all dispalcements and forces in a single displacement and force array (WIP)
+    # put all displacements and forces in a single displacement and force array (WIP)
     all_disp = np.zeros(Nodes.numDOF*Nodes.numNodes)
     for row in disp:
         index = int(row[0])
@@ -63,96 +187,6 @@ def assemble_allForce_array(Nodes,force):
         value = row[1]
         all_force[index] += value
     return all_force
-
-def find_local_loads(Nodes,Elements,forces,elm_ind):
-    '''forces should include all reactions and applied loads'''
-
-    # find coords and dof index of end points
-    x1,y1,z1,x2,y2,z2,node1_dof,node2_dof,node0,node1 = find_element_endPoints_dof(Nodes, Elements, elm_ind)
-
-    # total applied load on element
-    
-    # CHECK THIS - FORCES NOT DEFINED YET
-    #F_tot = forces[node0,:] + forces[node1,:]
-
-    # tranformation matrix
-    gamma = find_gamma(x1,y1,z1,x2,y2,z2,Elements.local_z, elm_ind)
-    Gamma = MSA_math.transformation_matrix_3D(gamma)
-
-    forces = np.array(forces)
-
-    # force in local coordinates
-    F_tot_local = Gamma @ forces
-
-    return F_tot_local
-
-def run_buckling_part(Nodes, Elements):
-
-    displacement, forces = run_MSA_solver(Nodes,Elements)
-    #move these to run_MSA
-    all_displacement = assemble_allDisp_array(Nodes, displacement)
-    all_force = assemble_allForce_array(Nodes,forces)
-
-    # find geometric stiffness - for all in global coordinates
-    # find elastic stiffnesses
-    # assemble to global matricies
-    # partition them
-    # then solve eigan problem
-
-    eigenValues = []
-    eigenVectors = []
-
-    for elm_ind in range(Elements.numElements):
-
-        x1,y1,z1,x2,y2,z2,node1_dof,node2_dof, node0,node1 = find_element_endPoints_dof(Nodes, Elements, elm_ind)
-
-        # material properties and force
-        matProps = np.array([Elements.A[elm_ind], Elements.L[elm_ind], Elements.I_rho[elm_ind]])
-        F_applied = all_force[node2_dof[0]:node2_dof[1]]
-
-        # local force and stiffness
-        F_local = find_local_loads(Nodes,Elements,all_force,elm_ind)
-        k_g = MSA_math.local_geometric_stiffness_matrix_3D_beam(*matProps,*F_applied)
-
-        matProps = np.array([Elements.E[elm_ind], Elements.nu[elm_ind], Elements.A[elm_ind], Elements.L[elm_ind], Elements.Iy[elm_ind], Elements.Iz[elm_ind], Elements.J[elm_ind]])
-
-        # local elastic stiffness 
-        k_e = MSA_math.local_elastic_stiffness_matrix_3D_beam(*matProps)
-
-        # eigen problem to solve [k_e + x*k_g]delta = 0
-        # NEED JUST FREE-FREE COMPONENTS
-        eigenVal,eigenVect = solve_eigen_problem(k_e,-k_g)
-
-        eigenValues.append(eigenVal)
-        eigenVectors.append(eigenVect)
-
-    # find the smallest eigenValue = critical load
-    P_crit = min(eigenValues)
-    return P_crit
-
-def solve_eigen_problem(k_e,k_g):
-
-        eigenvalues, eigenvectors = sp.linalg.eig(k_e, -k_g)
-
-        # Extract the real part of the eigenvalues (ignoring the imaginary part)
-        eigenvalues = np.real(eigenvalues)
-
-        # Filter for positive eigenvalues
-        positive_indices = eigenvalues > 0
-        positive_eigenvalues = eigenvalues[positive_indices]
-        positive_eigenvectors = eigenvectors[:, positive_indices]
-
-        # Sort the positive eigenvalues in ascending order
-        sorted_indices = np.argsort(positive_eigenvalues)
-        sorted_eigenvalues = positive_eigenvalues[sorted_indices]
-        sorted_eigenvectors = positive_eigenvectors[:, sorted_indices]
-
-        # only return the first index since that is the smallest eigen value
-        min_eigenValue = sorted_eigenvalues[0]
-        min_eigenVector = sorted_eigenvectors[0]
-
-        return min_eigenValue, min_eigenVector
-
 
 def find_global_frame_stiffness(Nodes,Elements):
 
