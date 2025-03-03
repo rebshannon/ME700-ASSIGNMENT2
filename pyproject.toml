@@ -26,7 +26,7 @@ dependencies = [
 
 [tool.pytest.ini_options]
 pythonpath = [
-  ".", "src.matrixStrucAnalysis", "tutorials","tests"
+  ".", "src", "tutorials","tests"
 ]
 
 [project.urls]
