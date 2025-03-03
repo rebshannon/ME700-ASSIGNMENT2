@@ -44,8 +44,34 @@ def run_MSA_solver(Nodes,Elements):
     dof_displacement = np.hstack((forceInd, Delta_f))
     dof_force = np.hstack((dofInd,F_rxn[:np.size(dofInd)]))
 
+    all_disp = np.zeros(6*Nodes.numDOF)
+    all_force = []
+    for row in dof_displacement:
+        index = int(row[0])
+        value = row[1]
+        all_disp[index] = value
+
+
     return dof_displacement, dof_force
 
+def run_elastic_part(Nodes, Elements):
+
+
+    dof, force = run_MSA_solver(Nodes,Elements)
+
+    for elm_ind in range(Elements.numElements):
+
+        x1,y1,z1,x2,y2,z2,node1_dof,node2_dof = find_element_endPoints_dof(Nodes, Elements, elm_ind)
+
+        # material properties
+        matProps = np.array([Elements.A[elm_ind], Elements.L[elm_ind], Elements.I_rho[elm_ind]])
+
+        k_g = MSA.local_geometric_stiffness_matrix_3D_beam(*matProps,FORCES)
+
+
+
+
+    
 
 def find_global_frame_stiffness(Nodes,Elements):
 

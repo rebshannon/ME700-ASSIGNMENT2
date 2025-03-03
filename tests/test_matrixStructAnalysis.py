@@ -213,10 +213,10 @@ def test_partition_matrices(NC,EC):
     assert np.allclose(known_forceInd, foundForceInd)
     assert np.allclose(known_dofInd, founddofInd)
 
-# def test_run_MSA_solver(NC,EC):
-#     found_d,found_f = MSA.run_MSA_solver(NC,EC)
-#     known_f = np.reshape(np.array([0,-0.09468332,1,-0.03420124,2,0.00469541,3,0.1079876,4,-0.02359799,5,-0.76301861,12,-0.00531668,13,-0.01579876,14,0.06530459]),(9,2))
-#     known_d = np.reshape(np.array([6,2.84049953e-3,7,1.59843349,8,-1.30609178e-3,9,-1.47204342e-1,10,-1.67293339e-2,11,1.82343348e-1,15,-0.16616285,16,0.00879074,17,0.18234335]),(9,2))
+def test_run_MSA_solver(NC,EC):
+    found_d,found_f = MSA.run_MSA_solver(NC,EC)
+    known_f = np.reshape(np.array([0,-0.09468332,1,-0.03420124,2,0.00469541,3,0.1079876,4,-0.02359799,5,-0.76301861,12,-0.00531668,13,-0.01579876,14,0.06530459]),(9,2))
+    known_d = np.reshape(np.array([6,2.84049953e-3,7,1.59843349,8,-1.30609178e-3,9,-1.47204342e-1,10,-1.67293339e-2,11,1.82343348e-1,15,-0.16616285,16,0.00879074,17,0.18234335]),(9,2))
 
-#     assert np.allclose(known_f, found_f)
-#     assert np.allclose(known_d, found_d)
+    assert np.allclose(known_f, found_f)
+    assert np.allclose(known_d, found_d)
