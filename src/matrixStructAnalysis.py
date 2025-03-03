@@ -44,20 +44,46 @@ def run_MSA_solver(Nodes,Elements):
     dof_displacement = np.hstack((forceInd, Delta_f))
     dof_force = np.hstack((dofInd,F_rxn[:np.size(dofInd)]))
 
-    all_disp = np.zeros(6*Nodes.numDOF)
-    all_force = []
-    for row in dof_displacement:
-        index = int(row[0])
-        value = row[1]
-        all_disp[index] = value
+
 
 
     return dof_displacement, dof_force
 
+def assemble_force_disp_arrays(Nodes, disp,force):
+    # put all dispalcements and forces in a single displacement and force array (WIP)
+    all_disp = np.zeros(6*Nodes.numDOF)
+    all_force = []
+    for row in disp:
+        index = int(row[0])
+        value = row[1]
+        all_disp[index] = value
+    return all_disp
+
+def find_local_loads(Nodes,Elements,forces,elm_index):
+    '''forces should include all reactions and applied loads'''
+
+    # find coords and dof index of end points
+    x1,y1,z1,x2,y2,z2,node1_dof,node2_dof = find_element_endPoints_dof(Nodes, Elements, elm_ind)
+
+    # total applied load on element
+    
+    # CHECK THIS - FORCES NOT DEFINED YET
+    F_tot = forces[node0,:] + load[node1,:]
+
+    # tranformation matrix
+    gamma = find_gamma(x1,y1,z1,x2,y2,z2,Elements.local_z, elm_ind)
+    Gamma = MSA_math.transformation_matrix_3D(gamma)
+
+    # force in local coordinates
+    F_tot_local = Gamma @ F_tot
+
+    return F_tot_local
+
+
+
 def run_elastic_part(Nodes, Elements):
 
-
-    dof, force = run_MSA_solver(Nodes,Elements)
+    displacement, forces = run_MSA_solver(Nodes,Elements)
 
     for elm_ind in range(Elements.numElements):
 
@@ -66,12 +92,18 @@ def run_elastic_part(Nodes, Elements):
         # material properties
         matProps = np.array([Elements.A[elm_ind], Elements.L[elm_ind], Elements.I_rho[elm_ind]])
 
-        k_g = MSA.local_geometric_stiffness_matrix_3D_beam(*matProps,FORCES)
+        # local force and stiffness
+        F_local = find_local_loads(Nodes,Elements,forces,elm_index)
+        k_g = MSA.local_geometric_stiffness_matrix_3D_beam(*matProps,F_local)
+
+        # local elastic stiffness 
+        k_e = MSA_math.local_elastic_stiffness_matrix_3D_beam(*matProps)
+
+        # eigan problem to solve [k_e + xk_g]delta = 0
+        #NEED TO IMPLEMENT SOLVER
 
 
 
-
-    
 
 def find_global_frame_stiffness(Nodes,Elements):
 

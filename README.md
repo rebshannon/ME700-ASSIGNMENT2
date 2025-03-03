@@ -37,7 +37,7 @@ Set up the conda environment and test that the code is functioning. Note: The en
     ```
 5. Test the code with pytest. This command returns code coverage for all files in the directory. Coverage for *src/matrixStructAnalysis.py* should be 100% and all tests should pass.  
     ```bash
-    pytest -v --cov=src  --cov-report term-missing
+    pytest -v --cov=src.matrixStructAnalysis  --cov-report term-missing
     ```
 
 ## Instructions <a name=inst></a>
