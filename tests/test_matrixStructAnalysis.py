@@ -1,4 +1,5 @@
 import numpy as np
+import scipy as sp
 import math
 import pytest
 import src.matrixStructAnalysis as MSA
@@ -35,7 +36,7 @@ def EC():
   return Elements(connections,E,nu,A,Iz,Iy,Ip,J,local_z)
 
 def test_find_element_endPoints_dof(NC,EC):
-  x1,y1,z1,x2,y2,z2,node1_dof, node2_dof = MSA.find_element_endPoints_dof(NC,EC,0)
+  x1,y1,z1,x2,y2,z2,node1_dof, node2_dof,node0,node1 = MSA.find_element_endPoints_dof(NC,EC,0)
   found_endPoints = np.array([x1,y1,z1,x2,y2,z2])
   found_dof = np.array([node1_dof,node2_dof])
   known_endPoints = np.array([0,0,10,15,0,10])
@@ -221,15 +222,23 @@ def test_run_MSA_solver(NC,EC):
   assert np.allclose(known_f, found_f)
   assert np.allclose(known_d, found_d)
 
-# def test_compile_force_disp_array(NC,EC):
-#   all_force = np.array([[-0.09468332,-0.03420124,0.00469541,0.1079876,-0.02359799,-0.76301861,0.1,0.05,-0.07,0.05,-0.1,0.25,-0.00531668,-0.01579876,0.06530459,0,0,0]])
-#   known_d = np.array([0,0,0,0,0,0,2.84049953e-3,1.59843349,-1.30609178e-3,-1.47204342e-1,-1.67293339e-2,1.82343348e-1,0,0,0,-0.16616285,0.00879074,0.18234335])
+def test_assemble_allDisp_array(NC,EC):
   
-#   known_f = np.reshape(all_force,(18,1))
-#   #known_d = np.reshape(all_disp,(18,1))
+  known_d = np.array([0,0,0,0,0,0,2.84049953e-3,1.59843349,-1.30609178e-3,-1.47204342e-1,-1.67293339e-2,1.82343348e-1,0,0,0,-0.16616285,0.00879074,0.18234335])
+  
+  test_disp = np.reshape(np.array([6,2.84049953e-3,7,1.59843349,8,-1.30609178e-3,9,-1.47204342e-1,10,-1.67293339e-2,11,1.82343348e-1,15,-0.16616285,16,0.00879074,17,0.18234335]),(9,2))
+  found_d = MSA.assemble_allDisp_array(NC,test_disp)
 
-#   test_disp = np.reshape(np.array([6,2.84049953e-3,7,1.59843349,8,-1.30609178e-3,9,-1.47204342e-1,10,-1.67293339e-2,11,1.82343348e-1,15,-0.16616285,16,0.00879074,17,0.18234335]),(9,2))
-#   found_d = MSA.assemble_force_disp_arrays(NC,test_disp,test_disp)
+  assert np.allclose(known_d, found_d)
 
-#   #assert np.allclose(known_f, found_f)
-#   assert np.allclose(known_d, found_d)
+def test_assemble_allForce_array(NC,EC):
+  known_f = np.array([[-0.09468332,-0.03420124,0.00469541,0.1079876,-0.02359799,-0.76301861,0.1,0.05,-0.07,0.05,-0.1,0.25,-0.00531668,-0.01579876,0.06530459,0,0,0]])
+ 
+  known_f = np.reshape(known_f,(18,1))
+  
+  test_force = np.reshape(np.array([0,-0.09468332,1,-0.03420124,2,0.00469541,3,0.1079876,4,-0.02359799,5,-0.76301861,12,-0.00531668,13,-0.01579876,14,0.06530459]),(9,2))
+  found_f = MSA.assemble_allForce_array(NC,test_force)
+
+  assert np.allclose(known_f, found_f)
+  
+#def test_solve_eigan_problem():
