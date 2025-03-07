@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 import math
 import math_utils as MSA_math
+import matplotlib.pyplot as plt
 
 class Nodes:
     def __init__(self,nodes,load, BC):
@@ -52,15 +53,17 @@ def run_linear_solver(Nodes,Elements):
 
     return all_displacement, all_force
 
-def allElm_internalForce_local(Nodes,Elements,displacements):
-    allInternalForces_local = []
-    for elm_ind in range(Elements.numElements):
-        element_force = find_internal_force_local(Nodes,Elements,displacements,elm_ind)
-        
-        allInternalForces_local.append(element_force)
-    return allInternalForces_local
+def allElm_endPointForce_local(Nodes,Elements,displacements):
+    allEndPointForces_local = []
 
-def find_internal_force_local(Nodes,Elements,displacements,elm_ind):
+    for elm_ind in range(Elements.numElements):
+
+        element_force = find_endPoint_force_local(Nodes,Elements,displacements,elm_ind)
+        allEndPointForces_local.append(element_force)
+  
+    return allEndPointForces_local
+
+def find_endPoint_force_local(Nodes,Elements,displacements,elm_ind):
     
     # find original coordinates and DOF
     x1,y1,z1,x2,y2,z2,node1_dof,node2_dof,node0,node1 = find_element_endPoints_dof(Nodes, Elements, elm_ind)
@@ -80,7 +83,7 @@ def find_internal_force_local(Nodes,Elements,displacements,elm_ind):
     matProps = np.array([Elements.E[elm_ind], Elements.nu[elm_ind], Elements.A[elm_ind], Elements.L[elm_ind], Elements.Iy[elm_ind], Elements.Iz[elm_ind], Elements.J[elm_ind]])
     k_e = MSA_math.local_elastic_stiffness_matrix_3D_beam(*matProps)
 
-    # internal force in local coords
+    # endpoint force in local coords
     local_force = k_e @ local_disp
 
     return local_force
@@ -92,8 +95,8 @@ def run_elasticCriticalLoad_analysis(Nodes, Elements):
     displacement, forces = run_linear_solver(Nodes,Elements)
 
     # local forces
-    local_forces = allElm_internalForce_local(Nodes,Elements,displacement)
-    local_forces = local_forces[0]
+    local_forces = allElm_endPointForce_local(Nodes,Elements,displacement)
+    local_forces = np.transpose(local_forces[0])
 
     # find frame geometric stiffness in global coordinates
     K_geo_global = find_global_frame_geometricStiffness(Nodes,Elements,local_forces)
@@ -110,8 +113,9 @@ def run_elasticCriticalLoad_analysis(Nodes, Elements):
     eigenvalues = np.real(eigenvalues)
 
     # find the smallest eigenValue = critical load
-    P_crit = eigenvalues
-    return P_crit
+    P_crit = np.min(np.abs(eigenvalues))
+    
+    return P_crit,eigenvectors
 
 def find_global_frame_geometricStiffness(Nodes,Elements,F_local):
 
@@ -122,10 +126,10 @@ def find_global_frame_geometricStiffness(Nodes,Elements,F_local):
         x1,y1,z1,x2,y2,z2,node1_dof,node2_dof,node0,node1 = find_element_endPoints_dof(Nodes, Elements, elm_ind)
 
         # material properties
-        matProps = np.array([Elements.A[elm_ind], Elements.L[elm_ind], Elements.I_rho[elm_ind]])
+        matProps = np.array([Elements.L[elm_ind], Elements.A[elm_ind],Elements.I_rho[elm_ind]])
         
         # force on element (may need to adjust)
-        F_local_element = np.vstack((F_local[node1_dof[0]:node1_dof[1]],F_local[node2_dof[0]:node2_dof[1]]))
+        F_local_element = F_local[elm_ind]
         F_indexForStiffness = [6,9,4,5,10,11]
         F_forStiffness = F_local_element[F_indexForStiffness]
                
@@ -155,6 +159,8 @@ def solve_eigen_problem(k_e,k_g):
     # Extract the real part of the eigenvalues (ignoring the imaginary part)
     eigenvalues = np.real(eigenvalues)
 
+    real_pos = np.isreal(eigenvalues) 
+
     # Filter for positive eigenvalues
     positive_indices = eigenvalues > 0
     positive_eigenvalues = eigenvalues[positive_indices]
@@ -182,6 +188,7 @@ def assemble_allDisp_array(Nodes, disp):
 
 def assemble_allForce_array(Nodes,force):
     all_force = np.reshape(Nodes.load,(Nodes.numDOF*Nodes.numNodes,1))
+    print(force)
     for row in force:
         index = int(row[0])
         value = row[1]
@@ -195,7 +202,7 @@ def find_global_frame_stiffness(Nodes,Elements):
 
         # find element endpoints and associated DOF
         x1,y1,z1,x2,y2,z2,node1_dof,node2_dof,node0,node1 = find_element_endPoints_dof(Nodes, Elements, elm_ind)
-
+        
         # material properties
         matProps = np.array([Elements.E[elm_ind], Elements.nu[elm_ind], Elements.A[elm_ind], Elements.L[elm_ind], Elements.Iy[elm_ind], Elements.Iz[elm_ind], Elements.J[elm_ind]])
 
@@ -242,8 +249,10 @@ def find_element_endPoints_dof(Nodes, Elements, elm_ind):
     return x1,y1,z1,x2,y2,z2,node1_dof, node2_dof, node0, node1
 
 def find_gamma(x1,y1,z1,x2,y2,z2,local_z, elm_ind):
-    if local_z is None: gamma = MSA_math.rotation_matrix_3D(x1,y1,z1,x2,y2,z2)
-    else: gamma = MSA_math.rotation_matrix_3D(x1,y1,z1,x2,y2,z2,local_z[elm_ind])
+    if None in local_z[elm_ind]: gamma = MSA_math.rotation_matrix_3D(x1,y1,z1,x2,y2,z2)
+    else: 
+        local_z_axis = np.array(local_z[elm_ind],dtype=float)
+        gamma = MSA_math.rotation_matrix_3D(x1,y1,z1,x2,y2,z2,local_z_axis)
     return gamma
 
 def partition_matrices(Nodes,Elements,K_global):
